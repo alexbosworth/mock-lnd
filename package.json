@@ -1,0 +1,29 @@
+{
+  "author": {
+    "name": "Alex Bosworth",
+    "url": "https://twitter.com/alexbosworth"
+  },
+  "bugs": {
+    "url": "https://github.com/alexbosworth/mock-lnd/issues"
+  },
+  "dependencies": {
+    "invoices": "1.2.0",
+    "secp256k1": "4.0.2"
+  },
+  "description": "Mock LND gRPC Object for unit testing",
+  "engines": {
+    "node": ">=12"
+  },
+  "keywords": [
+    "lightning",
+    "lightning-network"
+  ],
+  "license": "MIT",
+  "main": "index.js",
+  "name": "mock-lnd",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alexbosworth/mock-lnd.git"
+  },
+  "version": "1.0.0"
+}
