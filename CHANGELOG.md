@@ -1,6 +1,6 @@
 # Versions
 
-## 1.0.0
+## 1.0.1
 
 - `makeInvoice`: Add method to make an invoice message
 - `makeInvoiceSubscription`: Add method to make an invoice subscription
