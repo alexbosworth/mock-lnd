@@ -2,6 +2,17 @@
 
 Create mocking versions of LND gRPC for use in unit tests.
 
+## `makeForwardsResponse`
+
+Make a forwardingHistory response
+
+    {
+      offset: <Paging Offset Number>
+    }
+
+    @returns
+    <LND Forwards gRPC Response Object>
+
 ## `makeInvoice`
 
 Lookup invoice mock response
@@ -32,24 +43,14 @@ Make an invoice subscription
 Make an LND mock object for testing
 
     {
+      getForwards: <Override Get Forwards Response Function>
       getInvoice: <Override Get Invoice Response Function>
       subscribeToInvoice: <Override Subscribe to Invoice Emitter>
       subscribeToPay: <Override Subscribe to Pay Emitter>
     }
 
     @returns
-    {
-      default: {
-        addInvoice: ({}, cbk) => {}
-        lookupInvoice: ({}, cbk) => {}
-      }
-      invoices: {
-        subscribeSingleInvoice: ({}) => {}
-      }
-      router: {
-        sendPaymentV2: ({}) => {}
-      }
-    }
+    <Mock Authenticated LND API Object>
 
 ## `makePaySubscription`
 

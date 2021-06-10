@@ -1,5 +1,10 @@
 # Versions
 
+## 1.1.0
+
+- `makeForwardsResponse`: Add method to create a forwards response
+- `makeLnd`: Add support for forwards and add `getForwards` override
+
 ## 1.0.1
 
 - `makeInvoice`: Add method to make an invoice message
