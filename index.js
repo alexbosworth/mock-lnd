@@ -3,6 +3,7 @@ const {makeInvoice} = require('./data');
 const {makeInvoiceSubscription} = require('./lnd');
 const {makeLnd} = require('./lnd');
 const {makePaySubscription} = require('./lnd');
+const {makePayViaRoutesResponse} = require('./data');
 const {makePaymentData} = require('./data');
 const {makePaymentRequest} = require('./data');
 
@@ -12,6 +13,7 @@ module.exports = {
   makeInvoiceSubscription,
   makeLnd,
   makePaySubscription,
+  makePayViaRoutesResponse,
   makePaymentData,
   makePaymentRequest,
 };

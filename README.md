@@ -45,6 +45,7 @@ Make an LND mock object for testing
     {
       getForwards: <Override Get Forwards Response Function>
       getInvoice: <Override Get Invoice Response Function>
+      payViaRoutes: <Override Pay Via Routes Function>
       subscribeToInvoice: <Override Subscribe to Invoice Emitter>
       subscribeToPay: <Override Subscribe to Pay Emitter>
     }
@@ -62,6 +63,17 @@ Make a payment subscription
 
     @returns
     <EventEmitter Object>
+
+## `makePayViaRoutesResponse`
+
+Make a response for send to route
+
+    {
+      [is_unknown_failure]: <Route is Failed Bool>
+    }
+
+    @returns
+    <Paid Via Routes Response Object>
 
 ## `makePaymentData`
 
