@@ -1,6 +1,6 @@
 # Versions
 
-## 1.2.0
+## 1.2.1
 
 - `makeLnd`: Add support for forwards and add `payViaRoutes` override
 - `makePayViaRoutesResponse`: Add method to make pay via routes response
