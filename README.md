@@ -43,8 +43,10 @@ Make an invoice subscription
 Make an LND mock object for testing
 
     {
+      fundPsbt: <Override Fund PSBT Function>
       getForwards: <Override Get Forwards Response Function>
       getInvoice: <Override Get Invoice Response Function>
+      getWalletVersion: <Override Get Wallet Version Response Function>
       payViaRoutes: <Override Pay Via Routes Function>
       subscribeToInvoice: <Override Subscribe to Invoice Emitter>
       subscribeToPay: <Override Subscribe to Pay Emitter>
@@ -98,4 +100,15 @@ Make a BOLT 11 payment request
     {
       request: <BOLT 11 Payment Request String>
     }
+
+## `makeWalletVersionResponse`
+
+Make a response for getVersion
+
+    {
+      [hash]: <Override Commit Hash Hex String>
+    }
+
+    @returns
+    <GetVersion Response Object>
 
