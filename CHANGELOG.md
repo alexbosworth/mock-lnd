@@ -1,5 +1,14 @@
 # Versions
 
+## 1.3.0
+
+- `makeLnd`: Add support for `fundPsbt` method and override
+- `makeLnd`: Add support for `getChainFeeRate` method
+- `makeLnd`: Add support for `getWalletVersion` method and override
+- `makeLnd`: Add support for `signPsbt` method
+- `makeLnd`: Add support for `unlockUtxo` method
+- `makeWalletVersionResponse`: Add method to create a wallet version
+
 ## 1.2.1
 
 - `makeLnd`: Add support for forwards and add `payViaRoutes` override

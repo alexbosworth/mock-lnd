@@ -1,19 +1,25 @@
 const makeBlocksSubscription = require('./make_blocks_subscription');
+const {makeChainFeeRateResponse} = require('./../data');
 const makeForwardsResponse = require('./../data/make_forwards_response');
+const {makeFundPsbtResponse} = require('./../data');
 const makeInvoice = require('./../data/make_invoice');
 const makeInvoiceSubscription = require('./make_invoice_subscription');
 const makePaySubscription = require('./make_pay_subscription');
 const {makePayViaRoutesResponse} = require('./../data');
 const {makeRoutesResponse} = require('./../data');
+const {makeSignPsbtResponse} = require('./../data');
 const {makeWalletInfoResponse} = require('./../data');
+const {makeWalletVersionResponse} = require('./../data');
 
 const bufAsHex = buf => buf.toString('hex');
 
 /** Make an LND mock object for testing
 
   {
+    fundPsbt: <Override Fund PSBT Function>
     getForwards: <Override Get Forwards Response Function>
     getInvoice: <Override Get Invoice Response Function>
+    getWalletVersion: <Override Get Wallet Version Response Function>
     payViaRoutes: <Override Pay Via Routes Function>
     subscribeToInvoice: <Override Subscribe to Invoice Emitter>
     subscribeToPay: <Override Subscribe to Pay Emitter>
@@ -35,6 +41,15 @@ const bufAsHex = buf => buf.toString('hex');
     }
     router: {
       sendPaymentV2: ({}) => {}
+    }
+    version: {
+      getVersion: ({}) => {}
+    }
+    wallet: {
+      estimateFee: ({}) => {}
+      finalizePsbt: ({}) => {}
+      fundPsbt: ({}) => {}
+      releaseOutput: ({}) => {}
     }
   }
 */
@@ -99,6 +114,35 @@ module.exports = overrides => {
 
         return cbk(null, makePayViaRoutesResponse({}));
       },
+    },
+    version: {
+      getVersion: ({}, cbk) => {
+        if (!!overrides.getWalletVersion) {
+          return overrides.getWalletVersion({}, cbk);
+        }
+
+        return cbk(null, makeWalletVersionResponse({}));
+      },
+    },
+    wallet: {
+      estimateFee: ({}, cbk) => {
+        return cbk(null, makeChainFeeRateResponse({}));
+      },
+      finalizePsbt: (args, cbk) => {
+        if (!!overrides.signPsbt) {
+          return overrides.signPsbt({}, cbk);
+        }
+
+        return cbk(null, makeSignPsbtResponse({}));
+      },
+      fundPsbt: (args, cbk) => {
+        if (!!overrides.fundPsbt) {
+          return overrides.fundPsbt({}, cbk);
+        }
+
+        return cbk(null, makeFundPsbtResponse({}));
+      },
+      releaseOutput: ({}, cbk) => cbk(),
     },
   };
 };

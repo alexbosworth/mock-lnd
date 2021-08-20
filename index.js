@@ -6,6 +6,7 @@ const {makePaySubscription} = require('./lnd');
 const {makePayViaRoutesResponse} = require('./data');
 const {makePaymentData} = require('./data');
 const {makePaymentRequest} = require('./data');
+const {makeWalletVersionResponse} = require('./data');
 
 module.exports = {
   makeForwardsResponse,
@@ -16,4 +17,5 @@ module.exports = {
   makePayViaRoutesResponse,
   makePaymentData,
   makePaymentRequest,
+  makeWalletVersionResponse,
 };
