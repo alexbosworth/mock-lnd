@@ -44,8 +44,11 @@ Make an LND mock object for testing
 
     {
       fundPsbt: <Override Fund PSBT Function>
+      getChainTransactions: <Override Get Chain Transactions Response Function>
+      getChannels: <Override Get Channels Response Function>
       getForwards: <Override Get Forwards Response Function>
       getInvoice: <Override Get Invoice Response Function>
+      getUtxos: <Override Get Utxos Response Function>
       getWalletVersion: <Override Get Wallet Version Response Function>
       payViaRoutes: <Override Pay Via Routes Function>
       subscribeToInvoice: <Override Subscribe to Invoice Emitter>

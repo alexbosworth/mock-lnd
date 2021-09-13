@@ -2,6 +2,10 @@ const makeBlocksSubscription = require('./make_blocks_subscription');
 const {makeChainFeeRateResponse} = require('./../data');
 const makeForwardsResponse = require('./../data/make_forwards_response');
 const {makeFundPsbtResponse} = require('./../data');
+const {makeGetChainTxResponse} = require('./../data');
+const {makeGetChannelsResponse} = require('./../data');
+const {makeGetPendingChanResponse} = require('./../data');
+const {makeGetUtxosResponse} = require('./../data');
 const makeInvoice = require('./../data/make_invoice');
 const makeInvoiceSubscription = require('./make_invoice_subscription');
 const makePaySubscription = require('./make_pay_subscription');
@@ -17,8 +21,11 @@ const bufAsHex = buf => buf.toString('hex');
 
   {
     fundPsbt: <Override Fund PSBT Function>
+    getChainTransactions: <Override Get Chain Transactions Response Function>
+    getChannels: <Override Get Channels Response Function>
     getForwards: <Override Get Forwards Response Function>
     getInvoice: <Override Get Invoice Response Function>
+    getUtxos: <Override Get Utxos Response Function>
     getWalletVersion: <Override Get Wallet Version Response Function>
     payViaRoutes: <Override Pay Via Routes Function>
     subscribeToInvoice: <Override Subscribe to Invoice Emitter>
@@ -33,7 +40,11 @@ const bufAsHex = buf => buf.toString('hex');
     default: {
       addInvoice: ({}, cbk) => {}
       getInfo: ({}, cbk) => {}
+      getTransactions: ({}, cbk) => {}
+      listChannels: ({}, cbk) => {}
+      listUnspent: ({}, cbk) => {}
       lookupInvoice: ({}, cbk) => {}
+      pendingChannels: ({}, cbk) => {}
       queryRoutes: ({}, cbk) => {}
     }
     invoices: {
@@ -49,6 +60,7 @@ const bufAsHex = buf => buf.toString('hex');
       estimateFee: ({}) => {}
       finalizePsbt: ({}) => {}
       fundPsbt: ({}) => {}
+      listUnspent: ({}, cbk) => {}
       releaseOutput: ({}) => {}
     }
   }
@@ -75,6 +87,25 @@ module.exports = overrides => {
       getInfo: (args, cbk) => {
         return cbk(null, makeWalletInfoResponse({}));
       },
+      getTransactions: ({}, cbk) => {
+        // Exit early when there is a custom transactions response
+        if (!!overrides.getChainTransactions) {
+          return overrides.getChainTransactions({}, cbk);
+        }
+
+        return cbk(null, makeGetChainTxResponse({}));
+      },
+      listChannels: ({}, cbk) => {
+        // Exit early when there is a custom channels response
+        if (!!overrides.getChannels) {
+          return overrides.getChannels({}, cbk);
+        }
+
+        return cbk(null, makeGetChannelsResponse({}));
+      },
+      listUnspent: ({}, cbk) => {
+        return cbk(null, makeGetUtxosResponse({}));
+      },
       lookupInvoice: (args, cbk) => {
         // Exit early when there is a custom invoice response
         if (!!overrides.getInvoice) {
@@ -82,6 +113,9 @@ module.exports = overrides => {
         }
 
         return cbk(null, makeInvoice({}));
+      },
+      pendingChannels: ({}, cbk) => {
+        return cbk(null, makeGetPendingChanResponse({}));
       },
       queryRoutes: ({}, cbk) => {
         return cbk(null, makeRoutesResponse({}));
@@ -141,6 +175,14 @@ module.exports = overrides => {
         }
 
         return cbk(null, makeFundPsbtResponse({}));
+      },
+      listUnspent: ({}, cbk) => {
+        // Exit early when there is a custom utxos response
+        if (!!overrides.getUtxos) {
+          return overrides.getUtxos({}, cbk);
+        }
+
+        return cbk(null, makeGetUtxosResponse({}));
       },
       releaseOutput: ({}, cbk) => cbk(),
     },

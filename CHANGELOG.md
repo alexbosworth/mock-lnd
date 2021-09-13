@@ -1,5 +1,12 @@
 # Versions
 
+## 1.4.0
+
+- `makeLnd`: Add support for `getChainTransactions` method and override
+- `makeLnd`: Add support for `getChannels` method and override
+- `makeLnd`: Add support for `getPendingChannels` method
+- `makeLnd`: Add support for `getUtxos` method and override
+
 ## 1.3.0
 
 - `makeLnd`: Add support for `fundPsbt` method and override
