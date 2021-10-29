@@ -7,7 +7,7 @@
     "url": "https://github.com/alexbosworth/mock-lnd/issues"
   },
   "dependencies": {
-    "invoices": "2.0.0",
+    "invoices": "2.0.1",
     "secp256k1": "4.0.2"
   },
   "description": "Mock LND gRPC Object for unit testing",
@@ -25,5 +25,5 @@
     "type": "git",
     "url": "https://github.com/alexbosworth/mock-lnd.git"
   },
-  "version": "1.4.0"
+  "version": "1.4.1"
 }

@@ -39,6 +39,7 @@ const bufAsHex = buf => buf.toString('hex');
     }
     default: {
       addInvoice: ({}, cbk) => {}
+      deletePayment: ({}, cbk) => {}
       getInfo: ({}, cbk) => {}
       getTransactions: ({}, cbk) => {}
       listChannels: ({}, cbk) => {}
@@ -141,6 +142,14 @@ module.exports = overrides => {
         return makePaySubscription({});
       },
       sendToRoute: (args, cbk) => {
+        // Exit early when overriding the send to route
+        if (!!overrides.payViaRoutes) {
+          return overrides.payViaRoutes(args, cbk);
+        }
+
+        return cbk(null, makePayViaRoutesResponse({}));
+      },
+      sendToRouteV2: (args, cbk) => {
         // Exit early when overriding the send to route
         if (!!overrides.payViaRoutes) {
           return overrides.payViaRoutes(args, cbk);

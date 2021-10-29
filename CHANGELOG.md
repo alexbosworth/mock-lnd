@@ -1,6 +1,6 @@
 # Versions
 
-## 1.4.0
+## 1.4.1
 
 - `makeLnd`: Add support for `getChainTransactions` method and override
 - `makeLnd`: Add support for `getChannels` method and override
