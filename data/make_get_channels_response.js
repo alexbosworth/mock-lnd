@@ -9,6 +9,7 @@ module.exports = ({}) => {
   return {
     channels: [{
       active: true,
+      alias_scids: [],
       capacity: 1,
       chan_id: '1',
       channel_point: `${Buffer.alloc(32).toString('hex')}:1`,

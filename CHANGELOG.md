@@ -1,5 +1,9 @@
 # Versions
 
+## 1.4.2
+
+- `makeLnd`: Fix support for channel list past LND 0.15.0
+
 ## 1.4.1
 
 - `makeLnd`: Add support for `getChainTransactions` method and override
