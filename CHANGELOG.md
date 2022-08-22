@@ -1,5 +1,9 @@
 # Versions
 
+## 1.4.4
+
+- `makeLnd`: Support previous outpoints in chain transactions
+
 ## 1.4.3
 
 - `makeLnd`: Fix support for confirmed invoices
