@@ -111,7 +111,7 @@ module.exports = args => {
     settle_date: '1',
     settle_index: 1,
     settled: !!args.is_confirmed,
-    state: 'CANCELED',
+    state: !!args.is_confirmed ? 'SETTLED' : 'CANCELED',
     value: '1',
     value_msat: '1000',
   };

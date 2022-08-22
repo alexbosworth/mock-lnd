@@ -1,5 +1,9 @@
 # Versions
 
+## 1.4.3
+
+- `makeLnd`: Fix support for confirmed invoices
+
 ## 1.4.2
 
 - `makeLnd`: Fix support for channel list past LND 0.15.0
