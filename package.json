@@ -7,12 +7,11 @@
     "url": "https://github.com/alexbosworth/mock-lnd/issues"
   },
   "dependencies": {
-    "invoices": "2.1.0",
-    "secp256k1": "4.0.3"
+    "invoices": "3.0.0"
   },
   "description": "Mock LND gRPC Object for unit testing",
   "engines": {
-    "node": ">=12"
+    "node": ">=18"
   },
   "keywords": [
     "lightning",
@@ -25,5 +24,5 @@
     "type": "git",
     "url": "https://github.com/alexbosworth/mock-lnd.git"
   },
-  "version": "1.4.4"
+  "version": "2.0.0"
 }

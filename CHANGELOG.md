@@ -1,5 +1,12 @@
 # Versions
 
+## 2.0.0
+
+### Breaking Changes
+
+- Require node v18 or higher
+- `makePaymentRequest`: Ecpair factory argument `ecp` is now required
+
 ## 1.4.4
 
 - `makeLnd`: Support previous outpoints in chain transactions
