@@ -1,5 +1,9 @@
 # Versions
 
+## 3.0.0
+
+- Require node v20 or higher
+
 ## 2.0.0
 
 ### Breaking Changes
