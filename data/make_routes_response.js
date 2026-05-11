@@ -10,7 +10,6 @@ module.exports = ({}) => {
     routes: [{
       hops: [{
         amt_to_forward_msat: '1',
-        chan_capacity: '1',
         chan_id: '1',
         custom_records: {},
         expiry: 1,

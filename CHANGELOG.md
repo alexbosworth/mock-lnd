@@ -1,5 +1,9 @@
 # Versions
 
+## 4.0.0
+
+- Require node v22 or higher
+
 ## 3.0.0
 
 - Require node v20 or higher

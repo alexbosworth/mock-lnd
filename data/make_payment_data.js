@@ -41,7 +41,6 @@ module.exports = ({htlcs}) => {
         hops: [{
           amt_to_forward_msat: '1000',
           chan_id: '1',
-          chan_capacity: 1,
           expiry: 1,
           fee_msat: '1000',
           mpp_record: {
