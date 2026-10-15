@@ -1,18 +1,23 @@
 {
   "author": {
     "name": "Alex Bosworth",
-    "url": "https://twitter.com/alexbosworth"
+    "url": "https://x.com/alexbosworth"
   },
   "bugs": {
     "url": "https://github.com/alexbosworth/mock-lnd/issues"
   },
   "dependencies": {
-    "invoices": "5.0.2"
+    "invoices": "6.3.0"
   },
   "description": "Mock LND gRPC Object for unit testing",
   "engines": {
     "node": ">=22"
   },
+  "files": [
+    "data",
+    "index.js",
+    "lnd"
+  ],
   "keywords": [
     "lightning",
     "lightning-network"
