@@ -1,6 +1,5 @@
-const EventEmitter = require('events');
-
-const makePaymentData = require('./../data/make_payment_data');
+const {makePaymentData} = require('./../data');
+const makeStream = require('./make_stream');
 
 const {nextTick} = process;
 
@@ -11,13 +10,13 @@ const {nextTick} = process;
   }
 
   @returns
-  <EventEmitter Object>
+  <Stream EventEmitter Object>
 */
 module.exports = ({payment}) => {
   const data = makePaymentData({});
-  const emitter = new EventEmitter();
+  const stream = makeStream({});
 
-  nextTick(() => emitter.emit('data', payment || data));
+  nextTick(() => stream.emit('data', payment || data));
 
-  return emitter;
+  return stream;
 };

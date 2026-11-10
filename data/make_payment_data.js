@@ -1,3 +1,5 @@
+const paymentRequest = 'lntb1500n1pdn4czkpp5ugdqer05qrrxuchrzkcue94th9w2xzasp9qm7d0yxcgp4uh4kn4qdpa2fjkzep6yprkcmmzv9kzqsmj09c8gmmrw4e8yetwvdujq5n9va6kcct5d9hkucqzysdlghdpua7uvjjkcfj49psxtlqzkp5pdncffdfk2cp3mp76thrl29qhqgzufm503pjj96586n5w6edgw3n66j4rxxs707y4zdjuhyt6qqe5weu4';
+
 /** Make payment data
 
   {
@@ -18,7 +20,7 @@ module.exports = ({htlcs}) => {
       attempt_time_ns: '1000000',
       failure: {
         channel_update: {
-          base_fee: '1000',
+          base_fee: 1000,
           chain_hash: Buffer.alloc(32),
           chan_id: '1',
           channel_flags: 1,
@@ -32,7 +34,7 @@ module.exports = ({htlcs}) => {
           timestamp: 1,
         },
         code: 'UNREADABLE_FAILURE',
-        failure_source_index1: 1,
+        failure_source_index: 1,
         height: 1,
         htlc_msat: '1000',
       },
@@ -62,7 +64,7 @@ module.exports = ({htlcs}) => {
     payment_hash: Buffer.alloc(32).toString('hex'),
     payment_index: '1',
     payment_preimage: Buffer.alloc(32).toString('hex'),
-    payment_request: 'lntb1500n1pdn4czkpp5ugdqer05qrrxuchrzkcue94th9w2xzasp9qm7d0yxcgp4uh4kn4qdpa2fjkzep6yprkcmmzv9kzqsmj09c8gmmrw4e8yetwvdujq5n9va6kcct5d9hkucqzysdlghdpua7uvjjkcfj49psxtlqzkp5pdncffdfk2cp3mp76thrl29qhqgzufm503pjj96586n5w6edgw3n66j4rxxs707y4zdjuhyt6qqe5weu4',
+    payment_request: paymentRequest,
     status: 'SUCCEEDED',
     value: '1',
     value_msat: '1000',

@@ -2,16 +2,14 @@ const EventEmitter = require('events');
 
 const {nextTick} = process;
 
-/** Make an invoice subscription
+/** Make a blocks subscription, which is told of the current block
 
-  {
-    invoice: <Invoice Data Object>
-  }
+  {}
 
   @returns
   <EventEmitter Object>
 */
-module.exports = ({invoice}) => {
+module.exports = ({}) => {
   const data = {hash: Buffer.alloc(32), height: 1};
   const emitter = new EventEmitter();
 

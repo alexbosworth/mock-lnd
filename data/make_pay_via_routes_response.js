@@ -14,7 +14,6 @@ module.exports = args => {
       attempt_id: '1',
       attempt_time_ns: '1',
       failure: {
-        chan_id: '1',
         code: 'UNKNOWN_FAILURE',
         failure_source_index: 1,
       },

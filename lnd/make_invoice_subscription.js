@@ -1,6 +1,6 @@
 const EventEmitter = require('events');
 
-const makeInvoice = require('./../data/make_invoice');
+const {makeInvoice} = require('./../data');
 
 const {nextTick} = process;
 

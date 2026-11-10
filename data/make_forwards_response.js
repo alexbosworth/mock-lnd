@@ -1,3 +1,6 @@
+const currentNanoseconds = () => String(Math.round(Date.now() / 1e3 * 1e9));
+const currentSeconds = () => String(Math.round(Date.now() / 1e3));
+
 /** Make a forwardingHistory response
 
   {
@@ -7,7 +10,7 @@
 module.exports = args => {
   // Exit early when paging
   if (args.offset !== 0) {
-    return {forwarding_events: [], last_offset_index: '1'};
+    return {forwarding_events: [], last_offset_index: 1};
   }
 
   return {
@@ -20,9 +23,9 @@ module.exports = args => {
       chan_id_out: '2',
       fee: '1',
       fee_msat: '1000',
-      timestamp: Math.round(Date.now() / 1e3).toString(),
-      timestamp_ns: Math.round(Date.now() / 1e3 * 1e9).toString(),
+      timestamp: currentSeconds(),
+      timestamp_ns: currentNanoseconds(),
     }],
-    last_offset_index: '1',
+    last_offset_index: 1,
   };
 };

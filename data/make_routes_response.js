@@ -16,7 +16,7 @@ module.exports = ({}) => {
         fee_msat: '1',
         pub_key: Buffer.alloc(33, 3).toString('hex'),
       }],
-      total_amt: 1,
+      total_amt: '1',
       total_amt_msat: '1',
       total_fees: '1',
       total_fees_msat: '1',
