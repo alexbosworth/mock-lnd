@@ -4,7 +4,8 @@ Create mocking versions of LND gRPC for use in unit tests.
 
 A mock LND is a fake node: its identity, derived keys, shared keys and
 signatures come from a node secret, and it can have peers, channels, a graph,
-routes, invoices and onion messages. Its responses are checked against the LND
+routes, invoices, onion messages, MuSig2 signing sessions and a chain of
+blocks. Its responses are checked against the LND
 protos, as the `lightning` package has them.
 
 ## Testing
@@ -86,6 +87,38 @@ Public keys are lowercase, as LND has them. The network is one of `mainnet`,
 
 Invoices that are added can be paid with `payInvoice`.
 
+The node has a chain of blocks that build on each other, starting at the height
+of the first block. Each block has a coinbase transaction before its
+transactions. Without `chain`, there is one block at height 1. Published
+transactions go to the mempool, and are mined with `mineBlocks`. A published
+transaction that spends the same output as a transaction in the mempool
+replaces it, and the transactions that spend its outputs are evicted. The chain
+is reorganized with `reorgChain`. Chain notifier streams are told about blocks,
+confirmations, spends and reorgs, as LND tells them. A blocks stream finds its
+best block in the chain when it starts, on the next tick, and is told of the
+blocks after it. Like LND, a best block at height 0 is ignored, and the stream
+is told of the tip. A best block that a reorg took out is replayed from the
+fork. Every stream is told about an update of the chain before any stream is
+told about the next one, so blocks mined in a listener come after the blocks
+before them in each stream. Each stream is told about an update as the chain
+was when the update was made, even when a listener changes the chain. A
+canceled stream is told about nothing more. `estimateFee` gives the fee rate of
+the chain, at least LND's floor of 253 tokens per kiloweight.
+
+MuSig2 sessions sign with BIP-327 MuSig2, which LND calls version 1.0.0rc2,
+with sorted keys. Unlike LND, nonces come from the signing key and a count of
+sessions, so they are the same every time a test runs. `signOutputRaw` signs
+with the keys of the node. A key given by its public key, without a key
+locator, is found when it is the identity key, a key in `keys` or a key from
+`deriveNextKey`.
+
+A method with a failure fails with an LND error after a count of calls that
+succeed, and every call after that fails too. A stream fails on the next tick.
+Failed calls are recorded.
+
+Methods call back before they return. Streams are told about the node on the
+next tick. Responses have their own bytes, as gRPC responses do.
+
 Blinded invoices have paths in through active channels. When the graph
 describes a channel peer, a path only starts at the peer if it signals route
 blinding (feature bit 24 or 25) and has another channel, as LND requires.
@@ -94,6 +127,13 @@ Calls to the methods are recorded in `calls`. In strict mode, a response that
 does not match the LND protos throws an error.
 
     {
+      [chain]: {
+        [blocks]: [{
+          [transactions]: [<Raw Transaction Hex String>]
+        }]
+        [fee_tokens_per_vbyte]: <Chain Fee Tokens Per Virtual Byte Number>
+        [height]: <Height of the First Block Number>
+      }
       [channels]: [{
         [capacity]: <Channel Capacity Tokens Number>
         [id]: <Standard Format Channel Id String>
@@ -105,6 +145,13 @@ does not match the LND protos throws an error.
         [remote_balance]: <Remote Balance Tokens Number>
         [transaction_id]: <Funding Transaction Id Hex String>
         [transaction_vout]: <Funding Transaction Output Index Number>
+      }]
+      [failures]: [{
+        [after]: <Count of Calls That Succeed Before Failing Number>
+        [code]: <gRPC Status Code Number>
+        details: <Error Details String>
+        method: <RPC Method Name String>
+        type: <Sub-Server Type String>
       }]
       [features]: [<Node Feature Bit Number>]
       [fundPsbt]: <Override Fund PSBT Function>
@@ -186,17 +233,21 @@ does not match the LND protos throws an error.
 
 The mock LND has these methods:
 
-- `chain`: `registerBlockEpochNtfn`
+- `blocks`: `getBestBlock`, `getBlock`, `getBlockHash`, `getBlockHeader`
+- `chain`: `registerBlockEpochNtfn`, `registerConfirmationsNtfn`,
+    `registerSpendNtfn`
 - `default`: `addInvoice`, `forwardingHistory`, `getChanInfo`, `getInfo`,
     `getNodeInfo`, `getTransactions`, `listChannels`, `listPeers`,
     `listUnspent`, `lookupInvoice`, `pendingChannels`, `queryRoutes`,
     `sendOnionMessage`, `subscribeInvoices`, `subscribeOnionMessages`
 - `invoices`: `subscribeSingleInvoice`
 - `router`: `sendPaymentV2`, `sendToRouteV2`
-- `signer`: `deriveSharedKey`, `signMessage`
+- `signer`: `deriveSharedKey`, `muSig2Cleanup`, `muSig2CombineKeys`,
+    `muSig2CombineSig`, `muSig2CreateSession`, `muSig2RegisterNonces`,
+    `muSig2Sign`, `signMessage`, `signOutputRaw`
 - `version`: `getVersion`
 - `wallet`: `deriveKey`, `deriveNextKey`, `estimateFee`, `finalizePsbt`,
-    `fundPsbt`, `listUnspent`, `releaseOutput`
+    `fundPsbt`, `listUnspent`, `publishTransaction`, `releaseOutput`
 
 Example:
 
@@ -210,6 +261,22 @@ const {public_key} = await getIdentity({lnd});
 
 // Messages that were sent
 const sent = lnd.calls.filter(n => n.method === 'sendOnionMessage');
+```
+
+A method can fail after calls that succeed:
+
+```node
+const {makeLnd} = require('mock-lnd');
+
+// The second and later MuSig2 sessions fail to start
+const lnd = makeLnd({
+  failures: [{
+    after: 1,
+    details: 'err',
+    method: 'muSig2CreateSession',
+    type: 'signer',
+  }],
+});
 ```
 
 ## `makeOnionMessage`
@@ -310,6 +377,50 @@ Make a response for getVersion
     @returns
     <GetVersion Response Object>
 
+## `mineBlocks`
+
+Mine blocks on the chain of a fake LND
+
+The first block confirms the transactions in the mempool, and then the
+transactions. Blocks after the first block only have a coinbase.
+
+Transactions are not mined twice, and do not spend an output that another
+transaction in the block or in the chain spends.
+
+Streams of blocks, confirmations and spends are told about the blocks.
+
+    {
+      [count]: <Count of Blocks to Mine Number>
+      lnd: <Fake LND Object>
+      [transactions]: [<Raw Transaction Hex String>]
+    }
+
+    @throws
+    <Error>
+
+    @returns
+    {
+      blocks: [{
+        height: <Block Height Number>
+        id: <Block Id Hex String>
+      }]
+    }
+
+Example:
+
+```node
+const {broadcastChainTransaction} = require('ln-service');
+const {makeLnd} = require('mock-lnd');
+const {mineBlocks} = require('mock-lnd');
+
+const lnd = makeLnd({chain: {height: 100}});
+
+await broadcastChainTransaction({lnd, transaction});
+
+// The transaction is confirmed in block 101, with 6 confirmations at 106
+mineBlocks({lnd, count: 6});
+```
+
 ## `payInvoice`
 
 Pay an invoice of a fake LND, as when the node receives a payment for it
@@ -344,3 +455,40 @@ const {id} = await createInvoice({lnd, tokens: 1});
 // The invoice is paid, and subscriptions to invoices are told about it
 payInvoice({id, lnd});
 ```
+
+## `reorgChain`
+
+Reorganize the chain of a fake LND, replacing the blocks from a height with
+more blocks, as a chain backend switches to a chain with more work
+
+Without blocks, the blocks are replaced with one more block than the blocks
+that are replaced, with only coinbase transactions.
+
+Transactions of replaced blocks that are not in the new blocks go back to the
+mempool. Replaced blocks can still be gotten by their hashes.
+
+Transactions of the new blocks are not repeated, are not in the blocks that
+are kept, and do not spend an output that another transaction in the new
+blocks or the blocks that are kept spends.
+
+Streams of blocks are told about the new blocks. Streams of confirmations and
+spends are told of a reorg when their block is replaced.
+
+    {
+      [blocks]: [{
+        [transactions]: [<Raw Transaction Hex String>]
+      }]
+      height: <Height of the First Replaced Block Number>
+      lnd: <Fake LND Object>
+    }
+
+    @throws
+    <Error>
+
+    @returns
+    {
+      blocks: [{
+        height: <Block Height Number>
+        id: <Block Id Hex String>
+      }]
+    }

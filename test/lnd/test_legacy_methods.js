@@ -98,7 +98,7 @@ const tests = [
   {
     args: strictLnd(),
     description: 'Chain fee rate works in strict mode',
-    expected: {tokens_per_vbyte: 1},
+    expected: {tokens_per_vbyte: 1.012},
     method: lightning.getChainFeeRate,
   },
   {

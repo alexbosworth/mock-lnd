@@ -2,7 +2,9 @@ const {deepStrictEqual} = require('node:assert/strict');
 const {test} = require('node:test');
 
 const {chanNumber} = require('bolt07');
+const {idForTransaction} = require('@alexbosworth/blockchain');
 const {pointFromScalar} = require('tiny-secp256k1');
+const {transactionFromComponents} = require('@alexbosworth/blockchain');
 
 const {makeForwardsResponse} = require('./../../');
 const {makeInvoice} = require('./../../');
@@ -11,6 +13,7 @@ const {makeOnionMessage} = require('./../../');
 const {makePaymentData} = require('./../../');
 const {makePayViaRoutesResponse} = require('./../../');
 const {makeWalletVersionResponse} = require('./../../');
+const {mineBlocks} = require('./../../');
 const {rpcDetails} = require('./../../protos');
 const {rpcResponseProblems} = require('./../../protos');
 
@@ -22,7 +25,9 @@ const identity = '031b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd
 const identityLocator = {key_family: 6, key_index: 0};
 const {keys} = Object;
 const other = '02531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337';
+const p2wpkh = '0014751e76e8199196d454941c45d1b3a323f1433bd6';
 const peer = '024d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766';
+const version = 'MUSIG2_VERSION_V100RC2';
 const waitMs = 1000;
 
 // A fake LND with every option, so that every kind of response is made. The
@@ -54,11 +59,110 @@ const makeFullLnd = () => makeLnd({
   routes: [{hops: [{public_key: peer}]}],
 });
 
+// A transaction that pays to a P2WPKH output script
+const funding = transactionFromComponents({
+  inputs: [{id: '11'.repeat(32), script: '', sequence: 0, vout: 0}],
+  locktime: 0,
+  outputs: [{script: p2wpkh, tokens: 1000}],
+  version: 2,
+}).transaction;
+
+// The id of the transaction that pays to the P2WPKH output script
+const fundingId = idForTransaction({transaction: funding}).id;
+
+// A transaction that spends the P2WPKH output
+const spend = transactionFromComponents({
+  inputs: [{id: fundingId, script: '', sequence: 0, vout: 0}],
+  locktime: 0,
+  outputs: [{script: p2wpkh, tokens: 900}],
+  version: 2,
+}).transaction;
+
+// A request to start a MuSig2 session with the identity key and the peer
+const sessionRequest = {
+  all_signer_pubkeys: [hexAsBuffer(identity), hexAsBuffer(peer)],
+  key_loc: identityLocator,
+  taproot_tweak: {key_spend_only: true},
+  version,
+};
+
+// Call a method of a fake LND that responds right away, and get the response
+const callSync = (lnd, method, request) => {
+  let response;
+
+  lnd.signer[method](request, (err, res) => response = res);
+
+  return response;
+};
+
+// Get the hash of the chain tip of a fake LND
+const tipHash = lnd => {
+  let hash;
+
+  lnd.blocks.getBestBlock({}, (err, res) => hash = res.block_hash);
+
+  return hash;
+};
+
+// Start a MuSig2 session with the peer, and get the signature of the peer
+const signedSession = lnd => {
+  const cosigner = makeLnd({secret: Buffer.alloc(32, 2).toString('hex')});
+
+  const session = callSync(lnd, 'muSig2CreateSession', sessionRequest);
+
+  const signing = callSync(cosigner, 'muSig2CreateSession', {
+    ...sessionRequest,
+    key_loc: identityLocator,
+    other_signer_public_nonces: [session.local_public_nonces],
+  });
+
+  callSync(lnd, 'muSig2RegisterNonces', {
+    other_signer_public_nonces: [signing.local_public_nonces],
+    session_id: session.session_id,
+  });
+
+  const request = {
+    message_digest: Buffer.alloc(32),
+    session_id: session.session_id,
+  };
+
+  callSync(lnd, 'muSig2Sign', request);
+
+  const signed = callSync(cosigner, 'muSig2Sign', {
+    ...request,
+    session_id: signing.session_id,
+  });
+
+  return {session, signature: signed.local_partial_signature};
+};
+
 // The ways to call each method of the fake LND to get its responses, and the
 // errors of methods that a default fake LND fails like LND fails
 const cases = {
+  blocks: {
+    getBestBlock: {args: {}},
+    getBlock: {
+      prepare: lnd => ({block_hash: tipHash(lnd)}),
+    },
+    getBlockHash: {args: {block_height: 1}},
+    getBlockHeader: {
+      prepare: lnd => ({block_hash: tipHash(lnd)}),
+    },
+  },
   chain: {
     registerBlockEpochNtfn: {args: {}},
+    registerConfirmationsNtfn: {
+      args: {height_hint: 1, num_confs: 1, script: hexAsBuffer(p2wpkh)},
+      start: lnd => mineBlocks({lnd, transactions: [funding]}),
+    },
+    registerSpendNtfn: {
+      args: {
+        height_hint: 1,
+        outpoint: {hash: hexAsBuffer(fundingId).reverse(), index: 0},
+        script: hexAsBuffer(p2wpkh),
+      },
+      start: lnd => mineBlocks({lnd, transactions: [funding, spend]}),
+    },
   },
   default: {
     addInvoice: {args: {is_blinded: true, memo: 'memo', value_msat: '1'}},
@@ -118,7 +222,60 @@ const cases = {
   },
   signer: {
     deriveSharedKey: {args: {ephemeral_pubkey: hexAsBuffer(peer)}},
+    muSig2Cleanup: {
+      prepare: lnd => {
+        const session = callSync(lnd, 'muSig2CreateSession', sessionRequest);
+
+        return {session_id: session.session_id};
+      },
+    },
+    muSig2CombineKeys: {args: sessionRequest},
+    muSig2CombineSig: {
+      prepare: lnd => {
+        const {session, signature} = signedSession(lnd);
+
+        return {
+          other_partial_signatures: [signature],
+          session_id: session.session_id,
+        };
+      },
+    },
+    muSig2CreateSession: {args: sessionRequest},
+    muSig2RegisterNonces: {
+      prepare: lnd => {
+        const session = callSync(lnd, 'muSig2CreateSession', sessionRequest);
+
+        return {
+          other_signer_public_nonces: [Buffer.concat([asKey(4), asKey(5)])],
+          session_id: session.session_id,
+        };
+      },
+    },
+    muSig2Sign: {
+      prepare: lnd => {
+        const session = callSync(lnd, 'muSig2CreateSession', {
+          ...sessionRequest,
+          other_signer_public_nonces: [Buffer.concat([asKey(4), asKey(5)])],
+        });
+
+        return {
+          message_digest: Buffer.alloc(32),
+          session_id: session.session_id,
+        };
+      },
+    },
     signMessage: {args: {key_loc: identityLocator, msg: Buffer.alloc(1)}},
+    signOutputRaw: {
+      args: {
+        raw_tx_bytes: hexAsBuffer(spend),
+        sign_descs: [{
+          key_desc: {key_loc: identityLocator},
+          output: {pk_script: hexAsBuffer(p2wpkh), value: 1000},
+          sighash: 1,
+          witness_script: hexAsBuffer(p2wpkh),
+        }],
+      },
+    },
   },
   version: {
     getVersion: {args: {}},
@@ -130,13 +287,17 @@ const cases = {
     finalizePsbt: {args: {}},
     fundPsbt: {args: {}},
     listUnspent: {args: {}},
+    publishTransaction: {args: {tx_hex: hexAsBuffer(funding)}},
     releaseOutput: {args: {}},
   },
 };
 
 // Get the first response of a method of the fake LND
 const responseOf = ({lnd, method, type}) => {
-  const {args, start} = cases[type][method];
+  const {prepare, start} = cases[type][method];
+
+  // Methods of sessions are called with a session that is made first
+  const args = !!prepare ? prepare(lnd) : cases[type][method].args;
 
   return new Promise((resolve, reject) => {
     // Exit early when the method responds with a stream

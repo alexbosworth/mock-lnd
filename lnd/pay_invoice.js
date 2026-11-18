@@ -4,7 +4,6 @@ const {makeGetChannelsResponse} = require('./../data');
 const {updateInvoiceStreams} = require('./../node');
 
 const bufferAsHex = buffer => Buffer.from(buffer).toString('hex');
-const currentHeight = 1;
 const currentSeconds = () => String(Math.floor(Date.now() / 1e3));
 const isHash = n => typeof n === 'string' && /^[0-9A-F]{64}$/i.test(n);
 const isNumeric = n => typeof n === 'string' && /^\d+$/.test(n);
@@ -89,6 +88,7 @@ module.exports = ({id, index, lnd, mtokens}) => {
   }
 
   const {channels} = makeGetChannelsResponse({channels: node.channels});
+  const [tip] = node.chain.blocks.slice(-1);
   const now = currentSeconds();
   const settled = node.invoices.filter(n => n.state === settledState);
   const tokens = (received / mtokensPerToken).toString();
@@ -101,12 +101,13 @@ module.exports = ({id, index, lnd, mtokens}) => {
     amt_paid_msat: received.toString(),
     amt_paid_sat: tokens,
     htlcs: [{
-      accept_height: currentHeight,
+      // The payment is accepted at the chain tip
+      accept_height: tip.height,
       accept_time: now,
       amt_msat: received.toString(),
       chan_id: !channel ? noChannel : channel.chan_id,
       custom_records: {},
-      expiry_height: currentHeight + Number(invoice.cltv_expiry),
+      expiry_height: tip.height + Number(invoice.cltv_expiry),
       htlc_index: '0',
       mpp_total_amt_msat: received.toString(),
       resolve_time: now,

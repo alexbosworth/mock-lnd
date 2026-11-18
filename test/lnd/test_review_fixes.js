@@ -182,6 +182,19 @@ const tests = [
     method: throwingCallback,
   },
   {
+    args: {
+      method: 'muSig2CombineKeys',
+      request: {
+        all_signer_pubkeys: [peer, other].map(n => Buffer.from(n, 'hex')),
+        version: 'MUSIG2_VERSION_V100RC2',
+      },
+      type: 'signer',
+    },
+    description: 'Combining MuSig2 keys calls back once',
+    expected: {calls: [null], thrown: 'CallbackFailed'},
+    method: throwingCallback,
+  },
+  {
     args: {secret: '01'.repeat(32)},
     description: 'An invoice with a payment hash that exists is rejected',
     expected: {err: [409, 'InvoiceWithGivenHashAlreadyExists']},

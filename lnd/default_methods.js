@@ -29,10 +29,11 @@ const isAmount = n => !!n && !/^0*$/.test(String(n));
 const lower = key => String(key || '').toLowerCase();
 const mtokensPerToken = BigInt(1e3);
 const mutuallyExclusiveAmounts = 'sat and msat arguments are mutually exclusive';
+const {nextTick} = process;
 const nodeNotFound = 'unable to find node';
 const noRoute = 'unable to find a path to destination';
-const {nextTick} = process;
 const notConnected = 'peer is not connected';
+const timeOffset = 68;
 
 /** Make the methods of the default Lightning sub-server of a fake node
 
@@ -125,7 +126,12 @@ module.exports = ({node, overrides}) => {
       return cbk(null, makeChanInfoResponse({channel}));
     },
     getInfo: ({}, cbk) => {
+      const [tip] = node.chain.blocks.slice(-1);
+
       return cbk(null, makeWalletInfoResponse({
+        block_hash: tip.id,
+        block_height: tip.height,
+        block_time: String(tip.header.readUInt32LE(timeOffset)),
         channels: listChannels(),
         features: node.features,
         identity: node.identity,

@@ -36,6 +36,7 @@ const describeInvoice = async args => {
 
   return {
     features: got.features.map(n => n.bit),
+    held: got.held_mtokens,
     is_canceled: !!got.is_canceled,
     is_confirmed: got.is_confirmed,
     is_expired: isPast(got.expires_at),
@@ -69,6 +70,7 @@ const tests = [
     description: 'An invoice is open and unpaid by default, like LND makes',
     expected: {
       features: [8, 14, 17, 25],
+      held: '0',
       is_canceled: false,
       is_confirmed: false,
       is_expired: false,
@@ -86,6 +88,7 @@ const tests = [
     description: 'An invoice can be confirmed',
     expected: {
       features: [8, 14, 17, 25],
+      held: '0',
       is_canceled: false,
       is_confirmed: true,
       is_expired: false,
@@ -103,6 +106,7 @@ const tests = [
     description: 'An invoice can be canceled',
     expected: {
       features: [8, 14, 17, 25],
+      held: '0',
       is_canceled: true,
       is_confirmed: false,
       is_expired: false,
@@ -120,6 +124,7 @@ const tests = [
     description: 'An invoice with payments is held, with the amount shared',
     expected: {
       features: [8, 14, 17, 25],
+      held: '1000',
       is_canceled: false,
       is_confirmed: false,
       is_expired: false,
@@ -127,7 +132,7 @@ const tests = [
       is_preimage: true,
       is_request: true,
       payments: [[false, '500'], [false, '500']],
-      received: '1000',
+      received: '0',
       request_features: [8, 14, 17, 25],
     },
     method: describeInvoice,
@@ -137,6 +142,7 @@ const tests = [
     description: 'A canceled invoice has its payments canceled',
     expected: {
       features: [8, 14, 17, 25],
+      held: '0',
       is_canceled: true,
       is_confirmed: false,
       is_expired: false,

@@ -9,7 +9,9 @@ const {makePaymentData} = require('./data');
 const {makePaymentRequest} = require('./data');
 const {makeRpcError} = require('./data');
 const {makeWalletVersionResponse} = require('./data');
+const {mineBlocks} = require('./lnd');
 const {payInvoice} = require('./lnd');
+const {reorgChain} = require('./lnd');
 
 module.exports = {
   makeForwardsResponse,
@@ -23,5 +25,7 @@ module.exports = {
   makePaymentRequest,
   makeRpcError,
   makeWalletVersionResponse,
+  mineBlocks,
   payInvoice,
+  reorgChain,
 };

@@ -4,21 +4,43 @@ const isFeatureBits = require('./is_feature_bits');
 const isHops = require('./is_hops');
 const isKeyLocator = require('./is_key_locator');
 const isNodeSecret = require('./is_node_secret');
+const isRawTransaction = require('./is_raw_transaction');
+const makeChain = require('./make_chain');
+const maxBlockHeight = require('./max_block_height');
 
+const defaultChainHeight = 1;
 const defaultNetwork = 'mainnet';
 const defaultSecret = Buffer.alloc(32, 1).toString('hex');
 const hexAsBuffer = hex => Buffer.from(hex, 'hex');
 const {isArray} = Array;
 const isChannelId = n => typeof n === 'string' && /^\d+x\d+x\d+$/.test(n);
+const isCount = n => n === undefined || (Number.isInteger(n) && n >= 0);
+const isFeeRate = n => typeof n === 'number' && Number.isFinite(n) && n > 0;
 const isKey = n => typeof n === 'string' && /^0[23][0-9A-F]{64}$/i.test(n);
+const isObject = n => !!n && typeof n === 'object' && !Array.isArray(n);
+const isString = n => typeof n === 'string' && !!n;
 const lowerKey = n => ({...n, public_key: n.public_key.toLowerCase()});
 const networks = ['mainnet', 'regtest', 'signet', 'testnet', 'testnet4'];
 
 /** Make the state of a fake LND node
 
   {
+    [chain]: {
+      [blocks]: [{
+        [transactions]: [<Raw Transaction Hex String>]
+      }]
+      [fee_tokens_per_vbyte]: <Chain Fee Tokens Per Virtual Byte Number>
+      [height]: <Height of the First Block Number>
+    }
     [channels]: [{
       partner_public_key: <Peer Public Key Hex String>
+    }]
+    [failures]: [{
+      [after]: <Count of Calls That Succeed Before Failing Number>
+      [code]: <gRPC Status Code Number>
+      details: <Error Details String>
+      method: <RPC Method Name String>
+      type: <Sub-Server Type String>
     }]
     [features]: [<Feature Bit Number>]
     [graph]: {
@@ -59,7 +81,20 @@ const networks = ['mainnet', 'regtest', 'signet', 'testnet', 'testnet4'];
   @returns
   {
     calls: [<Call Object>]
+    chain: <Fake Chain Object>
     [channels]: [<Channel Object>]
+    derived_next_keys: [{
+      family: <Key Family Number>
+      index: <Key Index Number>
+    }]
+    failures: [{
+      [after]: <Count of Calls That Succeed Before Failing Number>
+      calls: <Count of Calls Number>
+      [code]: <gRPC Status Code Number>
+      details: <Error Details String>
+      method: <RPC Method Name String>
+      type: <Sub-Server Type String>
+    }]
     [features]: [<Feature Bit Number>]
     graph: {
       channels: [<Graph Channel Object>]
@@ -68,6 +103,12 @@ const networks = ['mainnet', 'regtest', 'signet', 'testnet', 'testnet4'];
     identity: <Node Identity Public Key Hex String>
     invoices: [<RPC Invoice Object>]
     keys: [<Key Object>]
+    musig2: {
+      count: <Count of Signing Sessions Made Number>
+      sessions: {
+        <Session Id Hex String>: <Signing Session Object>
+      }
+    }
     network: <Network Name String>
     next_key_indexes: {
       <Key Family Number>: <Next Key Index Number>
@@ -84,6 +125,59 @@ const networks = ['mainnet', 'regtest', 'signet', 'testnet', 'testnet4'];
   }
 */
 module.exports = args => {
+  if (args.chain !== undefined && !isObject(args.chain)) {
+    throw new Error('ExpectedChainObjectToMakeLnd');
+  }
+
+  const chain = args.chain || {};
+
+  if (chain.blocks !== undefined && !isArray(chain.blocks)) {
+    throw new Error('ExpectedArrayOfBlocksForChainToMakeLnd');
+  }
+
+  if (!!chain.blocks && !chain.blocks.length) {
+    throw new Error('ExpectedArrayOfBlocksForChainToMakeLnd');
+  }
+
+  if (!(chain.blocks || []).every(isObject)) {
+    throw new Error('ExpectedBlockObjectsForChainToMakeLnd');
+  }
+
+  const blockTransactions = (chain.blocks || []).map(block => {
+    return block.transactions || [];
+  });
+
+  if (!blockTransactions.every(isArray)) {
+    throw new Error('ExpectedArrayOfTransactionsForBlockToMakeLnd');
+  }
+
+  const transactions = blockTransactions.flat();
+
+  if (!transactions.every(transaction => isRawTransaction({transaction}))) {
+    throw new Error('ExpectedRawTransactionsForBlockToMakeLnd');
+  }
+
+  if (!isCount(chain.height)) {
+    throw new Error('ExpectedHeightOfFirstBlockForChainToMakeLnd');
+  }
+
+  const blockCount = !chain.blocks ? 1 : chain.blocks.length;
+  const isDefaultHeight = chain.height === undefined;
+
+  const firstHeight = isDefaultHeight ? defaultChainHeight : chain.height;
+
+  const lastHeight = firstHeight + blockCount - 1;
+
+  if (lastHeight > maxBlockHeight) {
+    throw new Error('ExpectedBlocksWithinMaxHeightForChainToMakeLnd');
+  }
+
+  const feeRate = chain.fee_tokens_per_vbyte;
+
+  if (feeRate !== undefined && !isFeeRate(feeRate)) {
+    throw new Error('ExpectedPositiveFeeRateForChainToMakeLnd');
+  }
+
   if (args.channels !== undefined && !isArray(args.channels)) {
     throw new Error('ExpectedArrayOfChannelsToMakeLnd');
   }
@@ -120,6 +214,28 @@ module.exports = args => {
 
   if (!(graph.nodes || []).every(n => isFeatureBits({bits: n.features}))) {
     throw new Error('ExpectedFeatureBitsForGraphNodeToMakeLnd');
+  }
+
+  if (args.failures !== undefined && !isArray(args.failures)) {
+    throw new Error('ExpectedArrayOfFailuresToMakeLnd');
+  }
+
+  const failures = args.failures || [];
+
+  if (!failures.every(isObject)) {
+    throw new Error('ExpectedFailureObjectsToMakeLnd');
+  }
+
+  if (!failures.every(n => isString(n.method) && isString(n.type))) {
+    throw new Error('ExpectedMethodAndTypeForFailureToMakeLnd');
+  }
+
+  if (!failures.every(n => isString(n.details))) {
+    throw new Error('ExpectedErrorDetailsForFailureToMakeLnd');
+  }
+
+  if (!failures.every(n => isCount(n.after) && isCount(n.code))) {
+    throw new Error('ExpectedCountOfCallsAndCodeForFailureToMakeLnd');
   }
 
   if (args.keys !== undefined && !isArray(args.keys)) {
@@ -199,7 +315,10 @@ module.exports = args => {
     keys,
     secret,
     calls: [],
+    chain: makeChain(chain),
     channels: !args.channels ? undefined : ownChannels,
+    derived_next_keys: [],
+    failures: failures.map(failure => ({...failure, calls: 0})),
     features: args.features,
     graph: {
       channels: graphChannels,
@@ -207,6 +326,7 @@ module.exports = args => {
     },
     identity: identity.toString('hex'),
     invoices: [],
+    musig2: {count: 0, sessions: {}},
     network: args.network || defaultNetwork,
     next_key_indexes: nextIndexes,
     peers: (args.peers || []).map(lowerKey),

@@ -1,4 +1,8 @@
+const {makeRpcError} = require('./../data');
+const makeStream = require('./make_stream');
+
 const checkedStream = Symbol('checked stream');
+const {nextTick} = process;
 
 /** Wrap a method of the fake LND to record calls to it, and in strict mode to
   check that its responses match the LND protos
@@ -11,6 +15,12 @@ const checkedStream = Symbol('checked stream');
       [response]: <RPC Response Object>
       [subscription]: <Stream EventEmitter Object>
       type: <Sub-Server Type String>
+    }]
+    failures: [{
+      [after]: <Count of Calls That Succeed Before Failing Number>
+      calls: <Count of Calls Number>
+      [code]: <gRPC Status Code Number>
+      details: <Error Details String>
     }]
     fn: <RPC Method Function>
     is_strict: <Check Responses Match LND Protos Bool>
@@ -48,6 +58,32 @@ module.exports = args => {
     const call = {args: request, method: args.method, type: args.type};
 
     args.calls.push(call);
+
+    args.failures.forEach(failure => failure.calls += 1);
+
+    // A method fails once it had the calls that succeed before its failure
+    const failure = args.failures.find(n => n.calls > (n.after || Number()));
+
+    // Exit early when the method fails
+    if (!!failure) {
+      const err = makeRpcError({code: failure.code, details: failure.details});
+
+      call.err = err;
+
+      // Exit early when the method fails with a callback
+      if (!!cbk) {
+        return cbk(err);
+      }
+
+      const subscription = makeStream({});
+
+      call.subscription = subscription;
+
+      // A failed stream gets its error after it is returned
+      nextTick(() => subscription.emit('error', err));
+
+      return subscription;
+    }
 
     // Exit early when the method returns a stream of responses
     if (!cbk) {

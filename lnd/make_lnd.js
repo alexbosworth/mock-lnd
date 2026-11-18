@@ -1,8 +1,10 @@
+const blocksMethods = require('./blocks_methods');
 const chainMethods = require('./chain_methods');
 const defaultMethods = require('./default_methods');
 const fakeNodes = require('./fake_nodes');
 const invoicesMethods = require('./invoices_methods');
 const {makeNode} = require('./../node');
+const musig2Methods = require('./musig2_methods');
 const routerMethods = require('./router_methods');
 const signerMethods = require('./signer_methods');
 const versionMethods = require('./version_methods');
@@ -32,6 +34,13 @@ const {entries} = Object;
   error when they do not match the LND protos.
 
   {
+    [chain]: {
+      [blocks]: [{
+        [transactions]: [<Raw Transaction Hex String>]
+      }]
+      [fee_tokens_per_vbyte]: <Chain Fee Tokens Per Virtual Byte Number>
+      [height]: <Height of the First Block Number>
+    }
     [channels]: [{
       [capacity]: <Channel Capacity Tokens Number>
       [id]: <Standard Format Channel Id String>
@@ -43,6 +52,13 @@ const {entries} = Object;
       [remote_balance]: <Remote Balance Tokens Number>
       [transaction_id]: <Funding Transaction Id Hex String>
       [transaction_vout]: <Funding Transaction Output Index Number>
+    }]
+    [failures]: [{
+      [after]: <Count of Calls That Succeed Before Failing Number>
+      [code]: <gRPC Status Code Number>
+      details: <Error Details String>
+      method: <RPC Method Name String>
+      type: <Sub-Server Type String>
     }]
     [features]: [<Node Feature Bit Number>]
     [fundPsbt]: <Override Fund PSBT Function>
@@ -119,8 +135,16 @@ const {entries} = Object;
       [subscription]: <Stream EventEmitter Object>
       type: <Sub-Server Type String>
     }]
+    blocks: {
+      getBestBlock: ({}, cbk) => {}
+      getBlock: ({}, cbk) => {}
+      getBlockHash: ({}, cbk) => {}
+      getBlockHeader: ({}, cbk) => {}
+    }
     chain: {
       registerBlockEpochNtfn: ({}) => {}
+      registerConfirmationsNtfn: ({}) => {}
+      registerSpendNtfn: ({}) => {}
     }
     default: {
       addInvoice: ({}, cbk) => {}
@@ -148,7 +172,14 @@ const {entries} = Object;
     }
     signer: {
       deriveSharedKey: ({}, cbk) => {}
+      muSig2Cleanup: ({}, cbk) => {}
+      muSig2CombineKeys: ({}, cbk) => {}
+      muSig2CombineSig: ({}, cbk) => {}
+      muSig2CreateSession: ({}, cbk) => {}
+      muSig2RegisterNonces: ({}, cbk) => {}
+      muSig2Sign: ({}, cbk) => {}
       signMessage: ({}, cbk) => {}
+      signOutputRaw: ({}, cbk) => {}
     }
     version: {
       getVersion: ({}, cbk) => {}
@@ -160,6 +191,7 @@ const {entries} = Object;
       finalizePsbt: ({}, cbk) => {}
       fundPsbt: ({}, cbk) => {}
       listUnspent: ({}, cbk) => {}
+      publishTransaction: ({}, cbk) => {}
       releaseOutput: ({}, cbk) => {}
     }
   }
@@ -170,11 +202,12 @@ module.exports = args => {
   const node = makeNode(overrides);
 
   const lnd = {
-    chain: chainMethods({}),
+    blocks: blocksMethods({node}),
+    chain: chainMethods({node}),
     default: defaultMethods({node, overrides}),
     invoices: invoicesMethods({node, overrides}),
     router: routerMethods({overrides}),
-    signer: signerMethods({node}),
+    signer: {...signerMethods({node}), ...musig2Methods({node})},
     version: versionMethods({overrides}),
     wallet: walletMethods({node, overrides}),
   };
@@ -182,7 +215,12 @@ module.exports = args => {
   // Calls are recorded, and responses are checked in strict mode
   entries(lnd).forEach(([type, methods]) => {
     return entries(methods).forEach(([method, fn]) => {
+      const failures = node.failures.filter(failure => {
+        return failure.method === method && failure.type === type;
+      });
+
       methods[method] = wrapMethod({
+        failures,
         fn,
         method,
         type,
@@ -192,6 +230,17 @@ module.exports = args => {
       });
     });
   });
+
+  const unknown = node.failures.find(failure => {
+    const methods = lnd[failure.type] || {};
+
+    return !methods[failure.method];
+  });
+
+  // Failures are of methods of the fake LND
+  if (!!unknown) {
+    throw new Error('ExpectedKnownMethodForFailureToMakeLnd');
+  }
 
   lnd.calls = node.calls;
 

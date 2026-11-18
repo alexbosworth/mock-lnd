@@ -1,5 +1,22 @@
 # Versions
 
+## 5.1.0
+
+- `makeLnd`: Add `chain` for a chain of blocks, and add `getBestBlock`,
+    `getBlock`, `getBlockHash`, `getBlockHeader`, `publishTransaction`,
+    `registerConfirmationsNtfn` and `registerSpendNtfn`
+- `makeLnd`: Add `failures` to make methods fail after calls that succeed
+- `makeLnd`: Add `muSig2Cleanup`, `muSig2CombineKeys`, `muSig2CombineSig`,
+    `muSig2CreateSession`, `muSig2RegisterNonces` and `muSig2Sign`, signing
+    with BIP-327 MuSig2
+- `makeLnd`: Add `signOutputRaw`
+- `makeLnd`: `estimateFee` gives the fee rate of the chain, at least LND's
+    floor of 253 tokens per kiloweight
+- `makeLnd`: `getInfo` and `registerBlockEpochNtfn` give the chain tip
+- `mineBlocks`: Add method to mine blocks
+- `payInvoice`: Accept payments at the height of the chain tip
+- `reorgChain`: Add method to reorganize the chain
+
 ## 5.0.0
 
 - `makeInvoice`: Add `is_canceled`
