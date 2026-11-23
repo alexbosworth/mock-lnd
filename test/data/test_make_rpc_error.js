@@ -39,6 +39,17 @@ const tests = [
       metadata: {},
     },
   },
+  {
+    args: {code: 13, details: 'serialization failure'},
+    description: 'An internal error has the name of its gRPC status code',
+    expected: {
+      code: 13,
+      details: 'serialization failure',
+      is_error: true,
+      message: '13 INTERNAL: serialization failure',
+      metadata: {},
+    },
+  },
 ];
 
 tests.forEach(({args, description, expected}) => {

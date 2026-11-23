@@ -1,6 +1,6 @@
 # Versions
 
-## 5.1.0
+## 5.1.1
 
 - `makeLnd`: Add `chain` for a chain of blocks, and add `getBestBlock`,
     `getBlock`, `getBlockHash`, `getBlockHeader`, `publishTransaction`,

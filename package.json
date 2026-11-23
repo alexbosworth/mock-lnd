@@ -12,18 +12,18 @@
     "url": "https://github.com/alexbosworth/mock-lnd/issues"
   },
   "dependencies": {
-    "@alexbosworth/blockchain": "4.12.0",
-    "bolt04": "1.3.0",
+    "@alexbosworth/blockchain": "5.0.0",
+    "bolt04": "1.5.0",
     "bolt07": "2.0.0",
-    "invoices": "6.3.4",
-    "lightning": "14.0.0",
-    "p2tr": "3.0.0",
+    "invoices": "6.3.6",
+    "lightning": "14.1.0",
+    "p2tr": "4.0.0",
     "protobufjs": "8.8.1",
     "tiny-secp256k1": "2.2.5"
   },
   "description": "Mock LND gRPC Object for unit testing",
   "devDependencies": {
-    "ln-docker-daemons": "9.0.0"
+    "ln-docker-daemons": "9.1.0"
   },
   "engines": {
     "node": ">=22"
@@ -50,5 +50,5 @@
     "integration-tests": "node --test test/integration/*.js",
     "test": "node --experimental-test-coverage --test test/data/*.js test/lnd/*.js test/node/*.js test/protos/*.js"
   },
-  "version": "5.1.0"
+  "version": "5.1.1"
 }

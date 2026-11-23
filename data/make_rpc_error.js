@@ -1,4 +1,4 @@
-const codeNames = {2: 'UNKNOWN', 5: 'NOT_FOUND', 12: 'UNIMPLEMENTED', 14: 'UNAVAILABLE'};
+const codeNames = {2: 'UNKNOWN', 5: 'NOT_FOUND', 12: 'UNIMPLEMENTED', 13: 'INTERNAL', 14: 'UNAVAILABLE'};
 const unknownCode = 2;
 
 /** Make an error as the gRPC client gives an error from LND

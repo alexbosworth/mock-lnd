@@ -21,6 +21,7 @@ const {verifySchnorr} = require('tiny-secp256k1');
 const {makeLnd} = require('./../../');
 const {mineBlocks} = require('./../../');
 const {rpcResponseProblems} = require('./../../protos');
+const witnessV0Hash = require('./../../node/v0_hash_to_sign');
 
 const bufferAsHex = buffer => Buffer.from(buffer).toString('hex');
 const capacity = 1e6;
@@ -319,6 +320,21 @@ const signedOutputs = async ({key, lnd}) => {
     transaction: funding,
   });
 
+  // A v0 input can be signed with a sighash type of zero
+  const v0Zero = await signTransaction({
+    lnd,
+    inputs: [{
+      key_family: identity.key_family,
+      key_index: identity.key_index,
+      output_script: p2wpkh,
+      output_tokens: signTokens,
+      sighash: sighashDefault,
+      vin: 0,
+      witness_script: p2wpkh,
+    }],
+    transaction: funding,
+  });
+
   const v1 = await signTransaction({
     lnd,
     inputs: [{
@@ -341,6 +357,15 @@ const signedOutputs = async ({key, lnd}) => {
     vin: 0,
   });
 
+  // A sighash type of zero is committed to in the v0 hash, like ALL is
+  const v0ZeroHash = witnessV0Hash({
+    script: p2wpkhScriptCode,
+    sighash: sighashDefault,
+    tokens: signTokens,
+    transaction: funding,
+    vin: 0,
+  });
+
   const v1Hash = v1HashToSign({
     sighash: sighashDefault,
     spends: [{script: taproot.script, tokens: signTokens}],
@@ -350,6 +375,7 @@ const signedOutputs = async ({key, lnd}) => {
 
   const [v0Signature] = v0.signatures.map(hexAsBuffer);
   const [v1Signature] = v1.signatures.map(hexAsBuffer);
+  const [v0ZeroSignature] = v0Zero.signatures.map(hexAsBuffer);
 
   // A key spend is signed with the key tweaked with the BIP-86 tweak
   const outputKey = hexAsBuffer(taproot.external_key).subarray(1);
@@ -357,6 +383,7 @@ const signedOutputs = async ({key, lnd}) => {
   return {
     taproot: verifySchnorr(hexAsBuffer(v1Hash.hash), outputKey, v1Signature),
     v0: verify(hexAsBuffer(v0Hash.hash), key, compactSignature(v0Signature)),
+    v0_zero: verify(v0ZeroHash.hash, key, compactSignature(v0ZeroSignature)),
   };
 };
 
@@ -783,7 +810,11 @@ test('The fake LND responds like a real LND', async t => {
 
       const mock = await signedOutputs({key: fakeIdentity, lnd: fake});
 
-      deepStrictEqual(real, {taproot: true, v0: true}, 'LND signs the hashes');
+      deepStrictEqual(
+        real,
+        {taproot: true, v0: true, v0_zero: true},
+        'LND signs the hashes'
+      );
 
       deepStrictEqual(mock, real, 'The fake LND signs the same hashes');
     });

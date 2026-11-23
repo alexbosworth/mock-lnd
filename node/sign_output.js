@@ -1,10 +1,10 @@
 const {sign} = require('tiny-secp256k1');
 const {signSchnorr} = require('tiny-secp256k1');
-const {v0HashToSign} = require('@alexbosworth/blockchain');
 const {v1HashToSign} = require('p2tr');
 
 const derSignature = require('./der_signature');
 const tapTweaked = require('./tap_tweaked');
+const v0HashToSign = require('./v0_hash_to_sign');
 
 const bufferAsHex = buffer => Buffer.from(buffer).toString('hex');
 const hexAsBuffer = hex => Buffer.from(hex, 'hex');
@@ -88,7 +88,7 @@ module.exports = args => {
     vin: args.vin,
   });
 
-  const signature = sign(hexAsBuffer(hash), args.private_key);
+  const signature = sign(hash, args.private_key);
 
   // LND gives DER signatures without the sighash flag
   return {signature: derSignature({signature}).encoded};

@@ -7,12 +7,14 @@ const {makeRpcError} = require('./../data');
 const {publicKeyProblem} = require('./../node');
 const {signMessage} = require('./../node');
 const {signOutput} = require('./../node');
+const {requestAsSent} = require('./../protos');
 
 const bufferAsHex = buffer => Buffer.from(buffer || []).toString('hex');
 const compressedKeyByteLength = 33;
 const hashByteLength = 32;
 const identityKey = {family: 6, index: 0};
 const identityLocator = {key_family: 6, key_index: 0};
+const internalCode = 13;
 const invalidKeyLocator = 'invalid key locator';
 const invalidPublicKey = 'unable to parse ephemeral pubkey';
 const isLocatorNumber = n => Number.isInteger(n) && n >= 0 && n < 2 ** 31;
@@ -28,8 +30,10 @@ const noSignDescs = 'at least one SignDescs MUST be passed in';
 const notDecoded = 'unable to decode tx: unexpected EOF';
 const noTransaction = 'a transaction to sign MUST be passed in';
 const outputsMismatch = 'provided previous outputs doesn\'t match number of transaction inputs';
+const requestNotEncoded = 'Request message serialization failure: ';
 const rpcSignMethods = ['SIGN_METHOD_WITNESS_V0', 'SIGN_METHOD_TAPROOT_KEY_SPEND_BIP0086', 'SIGN_METHOD_TAPROOT_KEY_SPEND', 'SIGN_METHOD_TAPROOT_SCRIPT_SPEND'];
 const unsupportedDoubleTweak = 'double tweaks are not supported by the mock LND';
+const tokensOf = output => Number(!output ? 0 : output.value);
 
 /** Make the methods of the signer sub-server of a fake node
 
@@ -156,14 +160,42 @@ module.exports = ({node}) => {
       return cbk(null, {signature});
     },
     signOutputRaw: (args, cbk) => {
+      const descs = args.sign_descs || [];
+      const outputs = args.prev_outputs || [];
+
+      // The gRPC client encodes the request before LND gets it
+      const sent = (() => {
+        try {
+          return requestAsSent({
+            method: 'signOutputRaw',
+            request: args,
+            type: 'signer',
+          });
+        } catch (err) {
+          return {problem: err.message};
+        }
+      })();
+
+      // Exit early when the request cannot be encoded by the gRPC client
+      if (!!sent.problem) {
+        return cbk(makeRpcError({
+          code: internalCode,
+          details: `${requestNotEncoded}${sent.problem}`,
+        }));
+      }
+
+      // Values are int64s that LND gets as whole tokens
+      const values = {
+        descs: sent.request.sign_descs.map(n => tokensOf(n.output)),
+        outputs: sent.request.prev_outputs.map(n => tokensOf(n)),
+      };
+
       const rawTx = Buffer.from(args.raw_tx_bytes || []);
 
       // Exit early when there is no transaction to sign
       if (!rawTx.length) {
         return cbk(makeRpcError({details: noTransaction}));
       }
-
-      const descs = args.sign_descs || [];
 
       // Exit early when there is nothing to sign in the transaction
       if (!descs.length) {
@@ -180,20 +212,18 @@ module.exports = ({node}) => {
         return cbk(makeRpcError({details: notDecoded}));
       }
 
-      const outputs = args.prev_outputs || [];
-
       // Exit early when the spent outputs are not the outputs of the inputs
       if (!!outputs.length && outputs.length !== inputs.length) {
         return cbk(makeRpcError({details: outputsMismatch}));
       }
 
-      const spends = outputs.map(output => ({
+      const spends = outputs.map((output, i) => ({
         script: bufferAsHex(output.pk_script),
-        tokens: Number(output.value),
+        tokens: values.outputs[i],
       }));
 
       // Sign descriptors are checked as LND checks them before signing
-      const signings = descs.map(desc => {
+      const signings = descs.map((desc, i) => {
         const keyDesc = desc.key_desc || {};
         const output = desc.output || {};
 
@@ -298,7 +328,7 @@ module.exports = ({node}) => {
           tapTweak,
           witnessScript,
           desc: {...desc, key_desc: keyDesc},
-          tokens: Number(output.value),
+          tokens: values.descs[i],
         };
       });
 

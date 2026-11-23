@@ -12,6 +12,7 @@ const {verify} = require('tiny-secp256k1');
 const {verifySchnorr} = require('tiny-secp256k1');
 
 const {makeLnd} = require('./../../');
+const witnessV0Hash = require('./../../node/v0_hash_to_sign');
 
 const all = promises => Promise.all(promises);
 const bufferAsHex = buffer => Buffer.from(buffer).toString('hex');
@@ -66,23 +67,24 @@ const v0Signature = async args => {
       key_index: 2,
       output_script: args.output_script,
       output_tokens: tokens,
-      sighash: 1,
+      sighash: args.sighash,
       vin: 0,
       witness_script: args.witness_script,
     }],
   });
 
-  const {hash} = v0HashToSign({
+  // Any sighash type is committed to, as LND commits to it
+  const {hash} = witnessV0Hash({
     transaction,
     tokens,
     script: args.script_code,
-    sighash: 1,
+    sighash: args.sighash,
     vin: 0,
   });
 
   const signature = compactSignature(hexAsBuffer(signatures[0]));
 
-  return verify(hexAsBuffer(hash), keyOf(2), signature);
+  return verify(hash, keyOf(2), signature);
 };
 
 // Sign a taproot input with the second secret, and check the signature
@@ -131,6 +133,34 @@ const v1Signature = async args => {
   const signature = hexAsBuffer(signatures[0]);
 
   return verifySchnorr(message, signingKey.subarray(1), signature);
+};
+
+// Sign for a spent value and for its tokens, and check that the signatures
+// are the same, as gRPC makes the value into the tokens
+const valueSignatures = async args => {
+  const lnd = makeLnd({keys, is_strict: true});
+
+  const signatures = await all([args.value, tokens].map(value => {
+    const output = {value, pk_script: hexAsBuffer(args.script)};
+
+    return new Promise((resolve, reject) => lnd.signer.signOutputRaw({
+      prev_outputs: [output],
+      raw_tx_bytes: hexAsBuffer(transaction),
+      sign_descs: [{
+        output,
+        input_index: 0,
+        key_desc: {key_loc: {key_family: 1, key_index: 2}},
+        sighash: args.sighash,
+        sign_method: args.sign_method,
+        witness_script: args.witness_script,
+      }],
+    },
+    (err, res) => !!err ? reject(err) : resolve(res.raw_sigs[0])));
+  }));
+
+  const [byValue, byTokens] = signatures.map(bufferAsHex);
+
+  return byValue === byTokens;
 };
 
 // Sign with a key found by its public key or tweaked, and check it
@@ -321,6 +351,7 @@ const tests = [
     args: {
       output_script: `0020${'33'.repeat(32)}`,
       script_code: witnessScript,
+      sighash: 1,
       witness_script: witnessScript,
     },
     description: 'A P2WSH input is signed with the witness script',
@@ -331,11 +362,67 @@ const tests = [
     args: {
       output_script: p2wpkhScript,
       script_code: `76a914${p2wpkhScript.slice(4)}88ac`,
+      sighash: 1,
       witness_script: p2wpkhScript,
     },
     description: 'A P2WPKH input is signed with the P2PKH script code',
     expected: true,
     method: v0Signature,
+  },
+  {
+    args: {
+      output_script: p2wpkhScript,
+      script_code: `76a914${p2wpkhScript.slice(4)}88ac`,
+      sighash: 0,
+      witness_script: p2wpkhScript,
+    },
+    description: 'A v0 input is signed with a sighash type of zero like LND',
+    expected: true,
+    method: v0Signature,
+  },
+  {
+    args: {
+      script: p2wpkhScript,
+      sighash: 1,
+      value: tokens + 0.75,
+      witness_script: hexAsBuffer(p2wpkhScript),
+    },
+    description: 'A v0 spend of a fractional value signs the whole tokens',
+    expected: true,
+    method: valueSignatures,
+  },
+  {
+    args: {
+      script: taprootScript,
+      sighash: 0,
+      sign_method: 1,
+      value: tokens + 0.75,
+    },
+    description: 'A taproot spend of a fractional value signs whole tokens',
+    expected: true,
+    method: valueSignatures,
+  },
+  {
+    args: {
+      script: p2wpkhScript,
+      sighash: 1,
+      value: {high: 0, low: tokens},
+      witness_script: hexAsBuffer(p2wpkhScript),
+    },
+    description: 'A v0 spend of a protobuf long value signs its tokens',
+    expected: true,
+    method: valueSignatures,
+  },
+  {
+    args: {
+      script: taprootScript,
+      sighash: 0,
+      sign_method: 1,
+      value: {high: 0, low: tokens},
+    },
+    description: 'A taproot spend of a protobuf long value signs its tokens',
+    expected: true,
+    method: valueSignatures,
   },
   {
     args: {},
@@ -369,6 +456,30 @@ const tests = [
     description: 'A single tweak is added to the signing key',
     expected: true,
     method: keySignature,
+  },
+  {
+    args: {descs: [{output: {pk_script: Buffer.alloc(1), value: '1-2'}}]},
+    description: 'A value that gRPC cannot encode fails the request',
+    expected: 'Request message serialization failure: interior hyphen',
+    method: signError,
+  },
+  {
+    args: {descs: [{output: {pk_script: Buffer.alloc(1), value: ''}}]},
+    description: 'An empty value string fails the request',
+    expected: 'Request message serialization failure: empty string',
+    method: signError,
+  },
+  {
+    args: {outputs: [{pk_script: Buffer.alloc(1), value: '1-2'}]},
+    description: 'A spent value that gRPC cannot encode fails the request',
+    expected: 'Request message serialization failure: interior hyphen',
+    method: signError,
+  },
+  {
+    args: {descs: [{output: {value: '1-2'}}], raw: Buffer.alloc(0)},
+    description: 'A request is encoded before LND checks it',
+    expected: 'Request message serialization failure: interior hyphen',
+    method: signError,
   },
   {
     args: {raw: Buffer.alloc(0)},
